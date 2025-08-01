@@ -38,9 +38,9 @@ impl ToString for ErrorMessage {
     }
 }
 
-impl Into<String> for ErrorMessage {
-    fn into(self) -> String {
-        self.to_string()
+impl From<ErrorMessage> for String {
+    fn from(val: ErrorMessage) -> Self {
+        val.to_string()
     }
 }
 
@@ -57,7 +57,7 @@ impl ErrorMessage {
             ErrorMessage::HashingError => "Error while hashing password".to_string(),
             ErrorMessage::InvalidHashFormat => "Invalid password hash format".to_string(),
             ErrorMessage::ExceededMaxPasswordLength(max_length) => {
-                format!("Password must not be more than {} characters", max_length)
+                format!("Password must not be more than {max_length} characters")
             }
             ErrorMessage::InvalidToken => "Authentication token is invalid or expired".to_string(),
             ErrorMessage::TokenNotProvided => {
@@ -123,19 +123,19 @@ impl HttpError {
         match self.status {
             400 => HttpResponse::BadRequest().json(Response {
                 status: "fail",
-                message: self.message.into(),
+                message: self.message,
             }),
             401 => HttpResponse::Unauthorized().json(Response {
                 status: "fail",
-                message: self.message.into(),
+                message: self.message,
             }),
             409 => HttpResponse::Conflict().json(Response {
                 status: "fail",
-                message: self.message.into(),
+                message: self.message,
             }),
             500 => HttpResponse::InternalServerError().json(Response {
                 status: "error",
-                message: self.message.into(),
+                message: self.message,
             }),
             _ => {
                 eprintln!(

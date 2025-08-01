@@ -41,7 +41,7 @@ pub fn compare(password: &str, hashed_password: &str) -> Result<bool, ErrorMessa
 
     let password_matches = Argon2::default()
         .verify_password(password.as_bytes(), &parsed_hash)
-        .map_or(false, |_| true);
+        .is_ok_and(|_| true);
 
     Ok(password_matches)
 }
@@ -61,14 +61,14 @@ mod tests {
     fn test_compare_hashed_passwords_should_return_true() {
         let (password, hashed_password) = setup_test();
 
-        assert_eq!(compare(&password, &hashed_password).unwrap(), true);
+        assert!(compare(&password, &hashed_password).unwrap());
     }
 
     #[test]
     fn test_compare_hashed_passwords_should_return_false() {
         let (_, hashed_password) = setup_test();
 
-        assert_eq!(compare("wrongpassword", &hashed_password).unwrap(), false);
+        assert!(!compare("wrongpassword", &hashed_password).unwrap());
     }
 
     #[test]

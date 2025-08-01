@@ -2,15 +2,13 @@ mod config;
 mod db;
 mod dtos;
 mod error;
-mod extractors;
-mod models;
-mod scopes;
+mod handlers;
+mod middleware;
+mod model;
 mod utils;
 
 use actix_cors::Cors;
-use actix_web::{
-    get, http::header, middleware::Logger, web, App, HttpResponse, HttpServer, Responder,
-};
+use actix_web::{http::header, middleware::Logger, web, App, HttpServer};
 use config::Config;
 use db::DBClient;
 use dotenv::dotenv;
@@ -18,7 +16,7 @@ use dtos::{
     FilterUserDto, LoginUserDto, RegisterUserDto, Response, UserData, UserListResponseDto,
     UserLoginResponseDto, UserResponseDto,
 };
-use scopes::{auth, users};
+use handlers::{auth, healthcheck, users};
 use sqlx::postgres::PgPoolOptions;
 use utoipa::{
     openapi::security::{HttpAuthScheme, HttpBuilder, SecurityScheme},
@@ -37,7 +35,7 @@ pub struct AppState {
 #[derive(OpenApi)]
 #[openapi(
     paths(
-        auth::login,auth::logout,auth::register, users::get_me, users::get_users, health_checker_handler
+        auth::login,auth::logout,auth::register, users::get_me, users::get_users, healthcheck::healthcheck
     ),
     components(
         schemas(UserData,FilterUserDto,LoginUserDto,RegisterUserDto,UserResponseDto,UserLoginResponseDto,Response,UserListResponseDto)
@@ -68,9 +66,11 @@ impl Modify for SecurityAddon {
 
 #[actix_web::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    openssl_probe::init_ssl_cert_env_vars();
-    if std::env::var_os("RUST_LOG").is_none() {
-        std::env::set_var("RUST_LOG", "actix_web=info");
+    unsafe {
+        openssl_probe::init_openssl_env_vars();
+        if std::env::var_os("RUST_LOG").is_none() {
+            std::env::set_var("RUST_LOG", "actix_web=info");
+        }
     }
 
     dotenv().ok();
@@ -85,7 +85,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     match sqlx::migrate!("./migrations").run(&pool).await {
         Ok(_) => println!("Migrations executed successfully."),
-        Err(e) => eprintln!("Error executing migrations: {}", e),
+        Err(e) => eprintln!("Error executing migrations: {e}"),
     };
 
     let db_client = DBClient::new(pool);
@@ -118,9 +118,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .app_data(web::Data::new(app_state.clone()))
             .wrap(cors)
             .wrap(Logger::default())
-            .service(scopes::auth::auth_scope())
-            .service(scopes::users::users_scope())
-            .service(health_checker_handler)
+            .service(handlers::auth::auth_scope())
+            .service(handlers::users::users_scope())
+            .service(handlers::healthcheck::healthcheck_scope())
             .service(Redoc::with_url("/redoc", openapi.clone()))
             .service(RapiDoc::new("/api-docs/openapi.json").path("/rapidoc"))
             .service(SwaggerUi::new("/{_:.*}").url("/api-docs/openapi.json", openapi.clone()))
@@ -130,43 +130,4 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     .await?;
 
     Ok(())
-}
-
-#[utoipa::path(
-    get,
-    path = "/api/healthchecker",
-    tag = "Health Checker Endpoint",
-    responses(
-        (status = 200, description= "Authenticated User", body = Response),       
-    )
-)]
-#[get("/api/healthchecker")]
-async fn health_checker_handler() -> impl Responder {
-    const MESSAGE: &str = "Complete Restful API in Rust";
-
-    HttpResponse::Ok().json(serde_json::json!({"status": "success", "message": MESSAGE}))
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use actix_web::{http::StatusCode, test, App};
-
-    #[actix_web::test]
-    async fn test_health_checker_handler() {
-        let app = test::init_service(App::new().service(health_checker_handler)).await;
-
-        let req = test::TestRequest::get()
-            .uri("/api/healthchecker")
-            .to_request();
-        let resp = test::call_service(&app, req).await;
-
-        assert_eq!(resp.status(), StatusCode::OK);
-
-        let body = test::read_body(resp).await;
-        let expected_json =
-            serde_json::json!({"status": "success", "message": "Complete Restful API in Rust"});
-
-        assert_eq!(body, serde_json::to_string(&expected_json).unwrap());
-    }
 }

@@ -3,10 +3,10 @@ use validator::Validate;
 
 use crate::{
     db::UserExt,
-    dtos::{FilterUserDto, RequestQueryDto, UserData, UserListResponseDto, UserResponseDto},
+    dtos::{FilterUserDto, RequestQueryDto, Response, UserData, UserListResponseDto, UserResponseDto},
     error::HttpError,
-    extractors::auth::{Authenticated, RequireAuth},
-    models::UserRole,
+    middleware::auth::{Authenticated, RequireAuth},
+    model::user::UserRole,
     AppState,
 };
 
@@ -142,7 +142,7 @@ mod tests {
         .await;
 
         let req = test::TestRequest::get()
-            .insert_header((http::header::AUTHORIZATION, format!("Bearer {}", token)))
+            .insert_header((http::header::AUTHORIZATION, format!("Bearer {token}")))
             .uri("/api/users/me")
             .to_request();
 
@@ -283,7 +283,7 @@ mod tests {
             .uri("/api/users/me")
             .insert_header((
                 http::header::AUTHORIZATION,
-                format!("Bearer {}", expired_token),
+                format!("Bearer {expired_token}"),
             ))
             .to_request();
 
@@ -340,7 +340,7 @@ mod tests {
         .await;
 
         let req = test::TestRequest::get()
-            .insert_header((http::header::AUTHORIZATION, format!("Bearer {}", token)))
+            .insert_header((http::header::AUTHORIZATION, format!("Bearer {token}")))
             .uri("/api/users")
             .to_request();
 
@@ -389,7 +389,7 @@ mod tests {
         .await;
 
         let req = test::TestRequest::get()
-            .insert_header((http::header::AUTHORIZATION, format!("Bearer {}", token)))
+            .insert_header((http::header::AUTHORIZATION, format!("Bearer {token}")))
             .uri("/api/users?page=1&limit=2")
             .to_request();
 
@@ -432,7 +432,7 @@ mod tests {
         .await;
 
         let req = test::TestRequest::get()
-            .insert_header((http::header::AUTHORIZATION, format!("Bearer {}", token)))
+            .insert_header((http::header::AUTHORIZATION, format!("Bearer {token}")))
             .uri("/api/users")
             .to_request();
 

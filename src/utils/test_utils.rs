@@ -46,9 +46,9 @@ pub async fn init_test_users(pool: &Pool<Postgres>) -> (Uuid, Uuid, Uuid) {
     }
 
     (
-        user_ids[0].clone(),
-        user_ids[1].clone(),
-        user_ids[2].clone(),
+        user_ids[0],
+        user_ids[1],
+        user_ids[2],
     )
 }
 

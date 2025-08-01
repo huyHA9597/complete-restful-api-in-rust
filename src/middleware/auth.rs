@@ -8,7 +8,7 @@ use std::task::{Context, Poll};
 
 use crate::db::UserExt;
 use crate::error::{ErrorMessage, ErrorResponse, HttpError};
-use crate::models::{User, UserRole};
+use crate::model::user::{User, UserRole};
 use crate::{utils, AppState};
 
 pub struct Authenticated(User);
@@ -114,18 +114,16 @@ where
         }
 
         let app_state = req.app_data::<web::Data<AppState>>().unwrap();
-        let user_id = match utils::token::decode_token(
-            &token.unwrap(),
-            app_state.env.jwt_secret.as_bytes(),
-        ) {
-            Ok(id) => id,
-            Err(e) => {
-                return Box::pin(ready(Err(ErrorUnauthorized(ErrorResponse {
-                    status: "fail".to_string(),
-                    message: e.message,
-                }))))
-            }
-        };
+        let user_id =
+            match utils::token::decode_token(token.unwrap(), app_state.env.jwt_secret.as_bytes()) {
+                Ok(id) => id,
+                Err(e) => {
+                    return Box::pin(ready(Err(ErrorUnauthorized(ErrorResponse {
+                        status: "fail".to_string(),
+                        message: e.message,
+                    }))))
+                }
+            };
 
         let cloned_app_state = app_state.clone();
         let allowed_roles = self.allowed_roles.clone();
@@ -135,7 +133,7 @@ where
             let user_id = uuid::Uuid::parse_str(user_id.as_str()).unwrap();
             let result = cloned_app_state
                 .db_client
-                .get_user(Some(user_id.clone()), None, None)
+                .get_user(Some(user_id), None, None)
                 .await
                 .map_err(|e| ErrorInternalServerError(HttpError::server_error(e.to_string())))?;
 
@@ -168,7 +166,7 @@ mod tests {
 
     use crate::{
         db::DBClient,
-        extractors::auth::RequireAuth,
+        middleware::auth::RequireAuth,
         utils::{password, test_utils::get_test_config, token},
     };
 
@@ -213,7 +211,7 @@ mod tests {
         .await;
 
         let req = test::TestRequest::default()
-            .insert_header((http::header::AUTHORIZATION, format!("Bearer {}", token)))
+            .insert_header((http::header::AUTHORIZATION, format!("Bearer {token}")))
             .to_request();
 
         let resp = test::call_service(&app, req).await;
@@ -359,7 +357,7 @@ mod tests {
         .await;
 
         let req = test::TestRequest::default()
-            .insert_header((http::header::AUTHORIZATION, format!("Bearer {}", token)))
+            .insert_header((http::header::AUTHORIZATION, format!("Bearer {token}")))
             .to_request();
 
         let result = test::try_call_service(&app, req).await.err();
@@ -407,7 +405,7 @@ mod tests {
         .await;
 
         let req = test::TestRequest::default()
-            .insert_header((http::header::AUTHORIZATION, format!("Bearer {}", token)))
+            .insert_header((http::header::AUTHORIZATION, format!("Bearer {token}")))
             .to_request();
 
         let resp = test::call_service(&app, req).await;

@@ -1,9 +1,8 @@
-use crate::models::UserRole;
 use async_trait::async_trait;
 use sqlx::{Pool, Postgres};
 use uuid::Uuid;
 
-use crate::models::User;
+use crate::model::user::{User, UserRole};
 
 #[derive(Debug, Clone)]
 pub struct DBClient {
@@ -135,7 +134,7 @@ mod tests {
         let user = db_client
             .get_user(Some(id_one), None, None)
             .await
-            .unwrap_or_else(|err| panic!("Failed to get user by id: {}", err))
+            .unwrap_or_else(|err| panic!("Failed to get user by id: {err}"))
             .expect("User not found");
 
         assert_eq!(user.id, id_one);
@@ -151,7 +150,7 @@ mod tests {
         let user = db_client
             .get_user(None, Some(name_to_find), None)
             .await
-            .unwrap_or_else(|err| panic!("Failed to get user by name: {}", err))
+            .unwrap_or_else(|err| panic!("Failed to get user by name: {err}"))
             .expect("User not found");
 
         assert_eq!(user.name, name_to_find);

@@ -7,12 +7,12 @@ use validator::Validate;
 use crate::{
     db::UserExt,
     dtos::{
-        FilterUserDto, LoginUserDto, RegisterUserDto, UserData, UserLoginResponseDto,
+        FilterUserDto, LoginUserDto, RegisterUserDto, Response, UserData, UserLoginResponseDto,
         UserResponseDto,
     },
     error::{ErrorMessage, HttpError},
-    extractors::auth::RequireAuth,
-    models::UserRole,
+    middleware::auth::RequireAuth,
+    model::user::UserRole,
     utils::{password, token},
     AppState,
 };
@@ -110,7 +110,7 @@ pub async fn login(
     if password_matches {
         let token = token::create_token(
             &user.id.to_string(),
-            &app_state.env.jwt_secret.as_bytes(),
+            app_state.env.jwt_secret.as_bytes(),
             app_state.env.jwt_maxage,
         )
         .map_err(|e| HttpError::server_error(e.to_string()))?;
@@ -547,7 +547,7 @@ mod tests {
         .await;
 
         let req = test::TestRequest::post()
-            .insert_header((http::header::AUTHORIZATION, format!("Bearer {}", token)))
+            .insert_header((http::header::AUTHORIZATION, format!("Bearer {token}")))
             .uri("/api/auth/logout")
             .to_request();
 
@@ -689,7 +689,7 @@ mod tests {
             .uri("/api/auth/logout")
             .insert_header((
                 http::header::AUTHORIZATION,
-                format!("Bearer {}", expired_token),
+                format!("Bearer {expired_token}"),
             ))
             .to_request();
 
