@@ -1,67 +1,30 @@
-mod config;
-mod db;
-mod dtos;
-mod error;
-mod handlers;
-mod middleware;
-mod model;
-mod utils;
+pub mod config;
+pub mod db;
+pub mod dtos;
+pub mod error;
+pub mod handlers;
+pub mod middleware;
+pub mod model;
+pub mod open_api;
+pub mod utils;
 
 use actix_cors::Cors;
 use actix_web::{http::header, middleware::Logger, web, App, HttpServer};
 use config::Config;
 use db::DBClient;
 use dotenv::dotenv;
-use dtos::{
-    FilterUserDto, LoginUserDto, RegisterUserDto, Response, UserData, UserListResponseDto,
-    UserLoginResponseDto, UserResponseDto,
-};
-use handlers::{auth, healthcheck, users};
 use sqlx::postgres::PgPoolOptions;
-use utoipa::{
-    openapi::security::{HttpAuthScheme, HttpBuilder, SecurityScheme},
-    Modify, OpenApi,
-};
+use utoipa::OpenApi;
 use utoipa_rapidoc::RapiDoc;
 use utoipa_redoc::{Redoc, Servable};
 use utoipa_swagger_ui::SwaggerUi;
+
+use crate::open_api::ApiDoc;
 
 #[derive(Debug, Clone)]
 pub struct AppState {
     pub env: Config,
     pub db_client: DBClient,
-}
-
-#[derive(OpenApi)]
-#[openapi(
-    paths(
-        auth::login,auth::logout,auth::register, users::get_me, users::get_users, healthcheck::healthcheck
-    ),
-    components(
-        schemas(UserData,FilterUserDto,LoginUserDto,RegisterUserDto,UserResponseDto,UserLoginResponseDto,Response,UserListResponseDto)
-    ),
-    tags(
-        (name = "Rust REST API", description = "Authentication in Rust Endpoints")
-    ),
-    modifiers(&SecurityAddon)
-)]
-struct ApiDoc;
-
-struct SecurityAddon;
-
-impl Modify for SecurityAddon {
-    fn modify(&self, openapi: &mut utoipa::openapi::OpenApi) {
-        let components = openapi.components.as_mut().unwrap();
-        components.add_security_scheme(
-            "token",
-            SecurityScheme::Http(
-                HttpBuilder::new()
-                    .scheme(HttpAuthScheme::Bearer)
-                    .bearer_format("JWT")
-                    .build(),
-            ),
-        )
-    }
 }
 
 #[actix_web::main]
@@ -117,13 +80,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         App::new()
             .app_data(web::Data::new(app_state.clone()))
             .wrap(cors)
-            .wrap(Logger::default())
             .service(handlers::auth::auth_scope())
             .service(handlers::users::users_scope())
             .service(handlers::healthcheck::healthcheck_scope())
             .service(Redoc::with_url("/redoc", openapi.clone()))
             .service(RapiDoc::new("/api-docs/openapi.json").path("/rapidoc"))
             .service(SwaggerUi::new("/{_:.*}").url("/api-docs/openapi.json", openapi.clone()))
+            .wrap(Logger::default())
     })
     .bind(("0.0.0.0", config.port))?
     .run()
